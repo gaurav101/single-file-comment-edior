@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Comment Thread</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@600&family=DM+Sans:wght@300;400;500&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0f0e0d;
+    --surface: #1a1916;
+    --surface-2: #242320;
+    --border: #2e2c29;
+    --accent: #e8c547;
+    --accent-dim: rgba(232, 197, 71, 0.12);
+    --text: #e8e4dc;
+    --text-muted: #7a7669;
+    --text-dim: #4a4840;
+    --green: #5cba7d;
+    --green-dim: rgba(92, 186, 125, 0.12);
+    --red: #e05c5c;
+    --radius: 12px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 40px 20px;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(232,197,71,0.07) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  header {
+    margin-bottom: 48px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 24px;
+  }
+
+  h1 {
+    font-family: 'Playfair Display', serif;
+    font-size: 2.2rem;
+    color: var(--text);
+    letter-spacing: -0.5px;
+  }
+
+  h1 span {
+    color: var(--accent);
+  }
+
+  .count-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 4px 12px;
+    border-radius: 20px;
+  }
+
+  .comment-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .comment-item {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    animation: slideIn 0.3s ease both;
+  }
+
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .comment-item:hover {
+    border-color: #3e3b36;
+  }
+
+  .comment-item.editing {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 1px rgba(232,197,71,0.15), 0 8px 32px rgba(0,0,0,0.3);
+  }
+
+  .comment-item.committed {
+    border-color: var(--green);
+    box-shadow: 0 0 0 1px rgba(92,186,125,0.1);
+  }
+
+  .comment-body {
+    padding: 20px 24px;
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+  }
+
+  .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    font-size: 0.85rem;
+    flex-shrink: 0;
+    letter-spacing: 0.5px;
+  }
+
+  .comment-content {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .comment-meta {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 8px;
+  }
+
+  .author {
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  .timestamp {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    font-family: 'DM Mono', monospace;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+  }
+
+  .committed-tag {
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--green);
+    background: var(--green-dim);
+    padding: 2px 8px;
+    border-radius: 4px;
+    border: 1px solid rgba(92,186,125,0.2);
+  }
+
+  .comment-text {
+    font-size: 0.93rem;
+    line-height: 1.65;
+    color: #c8c4bc;
+    font-weight: 300;
+  }
+
+  .comment-text.editing-mode {
+    display: none;
+  }
+
+  .edit-textarea {
+    display: none;
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.93rem;
+    line-height: 1.65;
+    font-weight: 300;
+    padding: 12px 14px;
+    resize: vertical;
+    min-height: 80px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .edit-textarea.active {
+    display: block;
+  }
+
+  .edit-textarea:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(232,197,71,0.08);
+  }
+
+  .comment-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 6px;
+    padding: 0 24px 4px;
+  }
+
+  .edit-btn {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-muted);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .edit-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    background: var(--accent-dim);
+  }
+
+  .inline-actions {
+    display: none;
+    padding: 12px 24px 20px;
+    justify-content: flex-end;
+    gap: 8px;
+    border-top: 1px solid var(--border);
+    background: rgba(0,0,0,0.15);
+  }
+
+  .inline-actions.visible {
+    display: flex;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-radius: 7px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.15s;
+    letter-spacing: 0.2px;
+  }
+
+  .btn-cancel {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text-muted);
+  }
+
+  .btn-cancel:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(224,92,92,0.08);
+  }
+
+  .btn-save {
+    background: var(--accent-dim);
+    border-color: rgba(232,197,71,0.3);
+    color: var(--accent);
+  }
+
+  .btn-save:hover {
+    background: rgba(232,197,71,0.2);
+    box-shadow: 0 0 16px rgba(232,197,71,0.1);
+  }
+
+  .btn-commit {
+    background: var(--green-dim);
+    border-color: rgba(92,186,125,0.3);
+    color: var(--green);
+  }
+
+  .btn-commit:hover {
+    background: rgba(92,186,125,0.2);
+    box-shadow: 0 0 16px rgba(92,186,125,0.1);
+  }
+
+  .btn-commit:disabled, .btn-save:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+    box-shadow: none;
+  }
+
+  .icon { font-size: 0.85em; }
+
+  /* Notification toast */
+  .toast {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    padding: 12px 20px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 500;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.25s;
+    pointer-events: none;
+    z-index: 999;
+  }
+
+  .toast.show {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  .toast.saved {
+    background: var(--surface-2);
+    border: 1px solid var(--accent);
+    color: var(--accent);
+  }
+
+  .toast.committed {
+    background: var(--surface-2);
+    border: 1px solid var(--green);
+    color: var(--green);
+  }
+
+  .edit-indicator {
+    display: none;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.75rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--accent);
+    padding: 4px 0 0 24px;
+  }
+
+  .edit-indicator.visible {
+    display: flex;
+  }
+
+  .edit-indicator::before {
+    content: '';
+    width: 4px;
+    height: 4px;
+    border-radius: 50%;
+    background: var(--accent);
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
+
+  .diff-marker {
+    font-size: 0.72rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+    font-style: italic;
+  }
+
+  hr.divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 6px 0;
+  }
+
+  /* Loading skeleton */
+  .skeleton-item {
+    height: 96px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    position: relative;
+    overflow: hidden;
+  }
+
+  .skeleton-item::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.04) 50%, transparent 100%);
+    animation: shimmer 1.4s infinite;
+  }
+
+  @keyframes shimmer {
+    from { transform: translateX(-100%); }
+    to   { transform: translateX(100%); }
+  }
+
+  .skeleton-label {
+    text-align: center;
+    font-size: 0.78rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+    padding-top: 4px;
+  }
+
+  .error-icon {
+    font-size: 2rem;
+    color: var(--red);
+  }
+
+  /* API source badge */
+  .api-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.7rem;
+    font-family: 'DM Mono', monospace;
+    color: var(--text-dim);
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    padding: 3px 10px;
+    border-radius: 20px;
+  }
+
+  .api-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--green);
+    animation: blink 2s infinite;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header>
+    <h1>Thread<span>.</span></h1>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <span class="api-badge"><span class="api-dot"></span>JSONPlaceholder API</span>
+      <span class="count-badge" id="commentCount">Loading…</span>
+    </div>
+  </header>
+
+  <!-- Loading state -->
+  <div id="loadingState" style="display:flex; flex-direction:column; gap:12px;">
+    <div class="skeleton-item"></div>
+    <div class="skeleton-item"></div>
+    <div class="skeleton-item"></div>
+    <div class="skeleton-label">Fetching from JSONPlaceholder API…</div>
+  </div>
+
+  <!-- Error state -->
+  <div id="errorState" style="display:none; flex-direction:column; align-items:center; gap:16px; padding:48px 0;">
+    <div class="error-icon">⚠</div>
+    <p class="error-msg" style="color:var(--text-muted); font-size:0.9rem;"></p>
+    <button class="btn btn-save" onclick="fetchComments()" style="padding:8px 20px;">↺ Retry</button>
+  </div>
+
+  <div class="comment-list" id="commentList"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const COLORS = [
+  { bg: '#2a1f3d', text: '#c4a8f5' },
+  { bg: '#1f2d2a', text: '#7fcfb4' },
+  { bg: '#2d2218', text: '#e8a86e' },
+  { bg: '#1e2535', text: '#8ab8f0' },
+  { bg: '#2d1e1e', text: '#f08a8a' },
+  { bg: '#252a1e', text: '#b4d47a' },
+];
+
+// ── API config ───────────────────────────────────────────────────────────────
+const API_URL = 'https://jsonplaceholder.typicode.com/comments?postId=1';
+const LIMIT    = 10;
+
+const FAKE_AUTHORS = [
+  { name: 'Mia Kowalski',  initials: 'MK' },
+  { name: 'Dev Patel',     initials: 'DP' },
+  { name: 'Soren Lyng',   initials: 'SL' },
+  { name: 'Aya Tanaka',    initials: 'AT' },
+  { name: 'Rafa Ibanez',  initials: 'RI' },
+  { name: 'Priya Nair',   initials: 'PN' },
+  { name: 'Tom Eriksen',  initials: 'TE' },
+  { name: 'Zara Osei',    initials: 'ZO' },
+];
+
+function relativeTime(index) {
+  const mins = [120, 104, 82, 58, 34, 21, 12, 6, 3, 1];
+  const m = mins[index] ?? (index + 1);
+  return m >= 60 ? `${Math.floor(m/60)}h ${m%60 ? m%60+'m ' : ''}ago` : `${m}m ago`;
+}
+
+let comments = [];
+let activeEditId = null;
+
+function getColor(index) {
+  return COLORS[index % COLORS.length];
+}
+
+function showToast(message, type) {
+  const toast = document.getElementById('toast');
+  toast.textContent = message;
+  toast.className = `toast ${type} show`;
+  setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function renderComment(comment, index) {
+  const color = getColor(index);
+  const item = document.createElement('div');
+  item.className = `comment-item${comment.committed ? ' committed' : ''}`;
+  item.id = `comment-${comment.id}`;
+
+  const hasSavedDraft = comment.savedText !== null && comment.savedText !== comment.text;
+
+  item.innerHTML = `
+    <div class="comment-body">
+      <div class="avatar" style="background:${color.bg}; color:${color.text}">${comment.initials}</div>
+      <div class="comment-content">
+        <div class="comment-meta">
+          <span class="author">${comment.author}</span>
+          <span class="status-dot"></span>
+          <span class="timestamp">${comment.time}</span>
+          ${comment.committed ? '<span class="committed-tag">✓ committed</span>' : ''}
+        </div>
+        <div class="comment-text" id="text-${comment.id}">${comment.savedText !== null ? comment.savedText : comment.text}</div>
+        <textarea class="edit-textarea" id="textarea-${comment.id}">${comment.savedText !== null ? comment.savedText : comment.text}</textarea>
+      </div>
+    </div>
+    <div class="edit-indicator" id="indicator-${comment.id}">editing…</div>
+    <div class="comment-actions" id="actions-${comment.id}">
+      ${!comment.committed ? `<button class="edit-btn" onclick="startEdit(${comment.id})">✏ Edit</button>` : ''}
+    </div>
+    <div class="inline-actions" id="inline-${comment.id}">
+      <span class="diff-marker" id="diff-${comment.id}"></span>
+      <button class="btn btn-cancel" onclick="cancelEdit(${comment.id})">✕ Cancel</button>
+      <button class="btn btn-save" id="save-${comment.id}" onclick="saveEdit(${comment.id})">↓ Save</button>
+      <button class="btn btn-commit" id="commit-${comment.id}" onclick="commitEdit(${comment.id})">⚡ Commit</button>
+    </div>
+  `;
+
+  return item;
+}
+
+function render() {
+  const list = document.getElementById('commentList');
+  list.innerHTML = '';
+  comments.forEach((c, i) => list.appendChild(renderComment(c, i)));
+  document.getElementById('commentCount').textContent = `${comments.length} comments`;
+}
+
+function startEdit(id) {
+  if (activeEditId !== null && activeEditId !== id) {
+    // Block: only one at a time
+    showToast('Finish editing the current comment first.', 'saved');
+    document.getElementById(`comment-${activeEditId}`).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    return;
+  }
+
+  activeEditId = id;
+  const item = document.getElementById(`comment-${id}`);
+  const textEl = document.getElementById(`text-${id}`);
+  const textarea = document.getElementById(`textarea-${id}`);
+  const indicator = document.getElementById(`indicator-${id}`);
+  const inlineActions = document.getElementById(`inline-${id}`);
+  const actions = document.getElementById(`actions-${id}`);
+
+  item.classList.add('editing');
+  textEl.classList.add('editing-mode');
+  textarea.classList.add('active');
+  indicator.classList.add('visible');
+  inlineActions.classList.add('visible');
+  actions.style.display = 'none';
+
+  textarea.focus();
+  textarea.selectionStart = textarea.value.length;
+
+  textarea.addEventListener('input', () => updateDiff(id));
+  updateDiff(id);
+}
+
+function updateDiff(id) {
+  const comment = comments.find(c => c.id === id);
+  const textarea = document.getElementById(`textarea-${id}`);
+  const diffEl = document.getElementById(`diff-${id}`);
+  const saveBtn = document.getElementById(`save-${id}`);
+  const original = comment.text;
+  const current = textarea.value;
+  const changed = current !== original && current !== (comment.savedText || original);
+  if (current.trim() === '') {
+    diffEl.textContent = 'cannot be empty';
+    saveBtn.disabled = true;
+    document.getElementById(`commit-${id}`).disabled = true;
+  } else {
+    diffEl.textContent = current !== original ? '● unsaved changes' : '';
+    saveBtn.disabled = false;
+    document.getElementById(`commit-${id}`).disabled = false;
+  }
+}
+
+function cancelEdit(id) {
+  const comment = comments.find(c => c.id === id);
+  const textarea = document.getElementById(`textarea-${id}`);
+  // Restore to last saved or original
+  textarea.value = comment.savedText !== null ? comment.savedText : comment.text;
+  closeEditMode(id);
+}
+
+function saveEdit(id) {
+  const comment = comments.find(c => c.id === id);
+  const textarea = document.getElementById(`textarea-${id}`);
+  const newText = textarea.value.trim();
+  if (!newText) return;
+
+  comment.savedText = newText;
+  document.getElementById(`text-${id}`).textContent = newText;
+  closeEditMode(id);
+  showToast('Draft saved — not yet committed.', 'saved');
+}
+
+function commitEdit(id) {
+  const comment = comments.find(c => c.id === id);
+  const textarea = document.getElementById(`textarea-${id}`);
+  const newText = textarea.value.trim();
+  if (!newText) return;
+
+  comment.text = newText;
+  comment.savedText = null;
+  comment.committed = true;
+
+  closeEditMode(id);
+  // Re-render this comment to show committed state
+  const list = document.getElementById('commentList');
+  const index = comments.findIndex(c => c.id === id);
+  const newItem = renderComment(comment, index);
+  const oldItem = document.getElementById(`comment-${id}`);
+  list.replaceChild(newItem, oldItem);
+  showToast('Comment committed successfully.', 'committed');
+}
+
+function closeEditMode(id) {
+  activeEditId = null;
+  const item = document.getElementById(`comment-${id}`);
+  const textEl = document.getElementById(`text-${id}`);
+  const textarea = document.getElementById(`textarea-${id}`);
+  const indicator = document.getElementById(`indicator-${id}`);
+  const inlineActions = document.getElementById(`inline-${id}`);
+  const actions = document.getElementById(`actions-${id}`);
+
+  item.classList.remove('editing');
+  textEl.classList.remove('editing-mode');
+  textarea.classList.remove('active');
+  indicator.classList.remove('visible');
+  inlineActions.classList.remove('visible');
+  if (actions) actions.style.display = '';
+}
+
+// ── Fetch from JSONPlaceholder ────────────────────────────────────────────────
+async function fetchComments() {
+  showLoading(true);
+  try {
+    const res = await fetch(API_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+
+    comments = data.slice(0, LIMIT).map((item, i) => {
+      const author = FAKE_AUTHORS[i % FAKE_AUTHORS.length];
+      return {
+        id: item.id,
+        author: author.name,
+        initials: author.initials,
+        time: relativeTime(i),
+        text: item.body.replace(/\n/g, ' '),
+        committed: false,
+        savedText: null,
+      };
+    });
+
+    showLoading(false);
+    render();
+  } catch (err) {
+    showLoading(false);
+    showError(err.message);
+  }
+}
+
+function showLoading(visible) {
+  document.getElementById('loadingState').style.display = visible ? 'flex' : 'none';
+  document.getElementById('errorState').style.display = 'none';
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorState');
+  el.style.display = 'flex';
+  el.querySelector('.error-msg').textContent = `Failed to load comments: ${msg}`;
+}
+
+fetchComments();
+</script>
+</body>
+</html>
